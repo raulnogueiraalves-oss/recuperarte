@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Biblioteca de Exercícios · Recuperarte</title>
+  <meta name="description" content="Biblioteca de exercícios terapêuticos com filtros combinados, pesquisa por lesão e criação de planos para o utente.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="top">
+    <div class="top__in">
+      <a class="brand" href="#/exercicios" aria-label="Biblioteca de exercícios — início">
+        <img src="../assets/img/favicon.svg" alt="" width="30" height="30">
+        <span>Recuper<em>arte</em> <small>Exercícios</small></span>
+      </a>
+      <nav class="tabs" aria-label="Secções">
+        <a href="#/exercicios" data-tab="exercicios">Exercícios</a>
+        <a href="#/lesoes" data-tab="lesoes">Lesões</a>
+        <a href="#/plano" data-tab="plano">Plano <span class="badge" id="planoCount" hidden>0</span></a>
+      </nav>
+      <button class="icon-btn" id="tema" type="button" aria-label="Alternar tema claro/escuro" title="Tema">◐</button>
+    </div>
+  </header>
+
+  <main id="app" tabindex="-1"></main>
+
+  <dialog id="detalhe" class="sheet" aria-labelledby="detalheTitulo"></dialog>
+  <dialog id="editor" class="sheet sheet--form" aria-labelledby="editorTitulo"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <div id="impressao" class="print-only"></div>
+
+  <script src="dados/taxonomia.js"></script>
+  <script src="dados/clinica-base.js"></script>
+  <script src="dados/clinica-coluna.js"></script>
+  <script src="dados/clinica-msup.js"></script>
+  <script src="dados/clinica-minf.js"></script>
+  <script src="dados/clinica-global.js"></script>
+  <script src="dados/lesoes.js"></script>
+  <script src="dados/ginasio.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
