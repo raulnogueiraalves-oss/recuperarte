@@ -22,6 +22,15 @@
     get: function (k, d) { try { var v = localStorage.getItem("rx_" + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
     set: function (k, v) { try { localStorage.setItem("rx_" + k, JSON.stringify(v)); } catch (e) { /* armazenamento indisponível */ } }
   };
+  var slug = function (id) { return String(id).replace(/_/g, "-"); };
+  var ARTEFACTO = !!window.RX_ARTIFACT; /* página privada do Claude: sem impressão nem transferências */
+  /* Confirmação em dois cliques (confirm() não funciona em todos os contextos) */
+  function confirmar(btn, msg) {
+    if (btn.dataset.armed) return true;
+    var orig = btn.textContent; btn.dataset.armed = "1"; btn.textContent = msg;
+    setTimeout(function () { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = orig; } }, 4000);
+    return false;
+  }
   var toastT;
   function toast(msg) {
     var t = $("#toast"); t.textContent = msg; t.classList.add("is-on");
@@ -128,7 +137,6 @@
   /* ---------- estado da vista de exercícios ---------- */
   var st = { q: "", sel: {}, sort: "relevancia", fav: false, view: store.get("view", "grid"), limit: POR_PAGINA };
   var abertas = Object.assign({}, ABERTAS_INICIAIS);
-  var lastExQs = "";
   var facFind = {};
   function stFromQuery(qs) {
     var p = new URLSearchParams(qs || "");
@@ -205,7 +213,8 @@
 
   /* ---------- VISTA: EXERCÍCIOS ---------- */
   function viewExercicios(qs) {
-    stFromQuery(qs);
+    if (qs) stFromQuery(qs);
+    st.limit = POR_PAGINA;
     var app = $("#app");
     app.innerHTML =
       '<div class="layout">' +
@@ -277,8 +286,6 @@
     $("#grid").innerHTML = shown.length ? shown.map(card).join("") :
       '<div class="empty" style="grid-column:1/-1"><p><strong>Nenhum exercício encontrado.</strong></p><p>Tente remover um filtro ou usar outro termo. Também pode <button class="linkbtn" data-act="novo">criar um exercício novo</button>.</p></div>';
     $("#more").innerHTML = res.length > st.limit ? '<button class="btn btn--quiet" data-act="more">Mostrar mais (' + (res.length - st.limit) + ")</button>" : "";
-    lastExQs = stToQuery();
-    history.replaceState(null, "", "#/exercicios" + lastExQs);
   }
 
   /* ---------- DETALHE ---------- */
@@ -322,7 +329,7 @@
           (e.cuidados ? '<div class="box box--warn"><h3>Cuidados</h3><p style="margin:0">' + esc(e.cuidados) + "</p></div>" : "") +
           (reg ? '<div class="box"><h3>↓ Regressões (mais fácil)</h3><div class="links">' + reg + "</div></div>" : "") +
           (prog ? '<div class="box"><h3>↑ Progressões (mais difícil)</h3><div class="links">' + prog + "</div></div>" : "") +
-          (usados.length ? '<div class="box"><h3>Usado nos planos de</h3><div class="links">' + usados.map(function (u) { return '<a class="chip" href="#/lesoes/' + u.l.id + '" data-act="closeDlg">' + esc(u.l.nome) + "</a>"; }).join("") + "</div></div>" : "") +
+          (usados.length ? '<div class="box"><h3>Usado nos planos de</h3><div class="links">' + usados.map(function (u) { return '<a class="chip" href="#lesao-' + slug(u.l.id) + '" data-act="closeDlg">' + esc(u.l.nome) + "</a>"; }).join("") + "</div></div>" : "") +
         "</div></div>" +
       "</div>";
     if (!d.open) d.showModal();
@@ -355,13 +362,13 @@
     });
     $("#lgrid").innerHTML = res.length ? res.map(function (l) {
       var n = 0; l.fases.forEach(function (f) { n += f.ex.length; });
-      return '<a class="lcard" href="#/lesoes/' + l.id + '"><div class="card__meta">' + labels("r", l.r).map(function (x) { return '<span class="tag tag--r">' + esc(x) + "</span>"; }).join("") + "</div><h3>" + esc(l.nome) + "</h3><p>" + esc(l.resumo) + '</p><span class="muted small">' + l.fases.length + " fases · " + n + " exercícios</span></a>";
+      return '<a class="lcard" href="#lesao-' + slug(l.id) + '"><div class="card__meta">' + labels("r", l.r).map(function (x) { return '<span class="tag tag--r">' + esc(x) + "</span>"; }).join("") + "</div><h3>" + esc(l.nome) + "</h3><p>" + esc(l.resumo) + '</p><span class="muted small">' + l.fases.length + " fases · " + n + " exercícios</span></a>";
     }).join("") : '<div class="empty" style="grid-column:1/-1">Nenhuma lesão encontrada. Experimente outro termo ou procure diretamente na biblioteca de exercícios.</div>';
   }
   function viewLesao(id) {
-    var l = LESOES.filter(function (x) { return x.id === id; })[0], app = $("#app");
-    if (!l) { app.innerHTML = '<div class="wrap"><a class="back" href="#/lesoes">← Todas as lesões</a><p>Lesão não encontrada.</p></div>'; return; }
-    app.innerHTML = '<div class="wrap"><a class="back" href="#/lesoes">← Todas as lesões</a>' +
+    var l = LESOES.filter(function (x) { return x.id === id || slug(x.id) === id; })[0], app = $("#app");
+    if (!l) { app.innerHTML = '<div class="wrap"><a class="back" href="#lesoes">← Todas as lesões</a><p>Lesão não encontrada.</p></div>'; return; }
+    app.innerHTML = '<div class="wrap"><a class="back" href="#lesoes">← Todas as lesões</a>' +
       '<div class="lhead"><div><div class="card__meta" style="margin-bottom:8px">' + labels("r", l.r).map(function (x) { return '<span class="tag tag--r">' + esc(x) + "</span>"; }).join("") + "</div>" +
         "<h1>" + esc(l.nome) + '</h1><p class="muted small">' + esc(l.aka) + '</p><p class="lead">' + esc(l.resumo) + "</p>" +
         '<div class="box"><h3>Princípios de tratamento</h3><ul class="list">' + l.principios.map(function (p) { return "<li>" + esc(p) + "</li>"; }).join("") + "</ul></div>" +
@@ -400,7 +407,7 @@
     var app = $("#app");
     var itens = plano.itens.filter(function (i) { return BYID[i.id]; });
     app.innerHTML = '<div class="wrap"><div class="plan"><div>' +
-      '<h1>Plano de exercícios</h1><p class="muted">Defina a dose, reorganize e imprima uma folha clara para o utente (ou guarde em PDF).</p>' +
+      '<h1>Plano de exercícios</h1><p class="muted">' + (ARTEFACTO ? "Defina a dose, reorganize e copie o plano como texto para enviar ao utente." : "Defina a dose, reorganize e imprima uma folha clara para o utente (ou guarde em PDF).") + '</p>' +
       (itens.length ? itens.map(function (it, idx) {
         var e = BYID[it.id];
         return '<div class="pitem" data-idx="' + idx + '"><div class="pitem__n">' + (idx + 1) + "</div><div>" +
@@ -411,16 +418,16 @@
           '<label>Frequência<input data-k="freq" value="' + esc(it.freq) + '" placeholder="ex.: 1×/dia"></label></div>' +
           '<textarea data-k="nota" placeholder="Nota para o utente (opcional)" aria-label="Nota">' + esc(it.nota) + "</textarea></div>" +
           '<div class="pitem__ctl"><button class="mini" data-act="up" aria-label="Subir">↑</button><button class="mini" data-act="down" aria-label="Descer">↓</button><button class="mini" data-act="rm" aria-label="Remover">✕</button></div></div>';
-      }).join("") : '<div class="empty"><p><strong>O plano está vazio.</strong></p><p>Use o botão <strong>+</strong> nos exercícios ou adicione uma fase completa a partir de uma <a href="#/lesoes">lesão</a>.</p><a class="btn" href="#/exercicios">Explorar exercícios</a></div>') +
+      }).join("") : '<div class="empty"><p><strong>O plano está vazio.</strong></p><p>Use o botão <strong>+</strong> nos exercícios ou adicione uma fase completa a partir de uma <a href="#lesoes">lesão</a>.</p><a class="btn" href="#exercicios">Explorar exercícios</a></div>') +
       '</div><aside class="side">' +
         '<div class="box stack"><label class="field">Utente (opcional)<input id="pNome" value="' + esc(plano.nome) + '" placeholder="Nome ou iniciais"></label>' +
         '<label class="field">Indicações gerais<textarea id="pNotas" rows="4" placeholder="ex.: Fazer os exercícios com dor até 3/10. Parar se agravar no dia seguinte.">' + esc(plano.notas) + "</textarea></label>" +
         '<p class="muted small" style="margin:0">Os dados ficam só neste navegador; nada é enviado para nenhum servidor.</p></div>' +
-        '<div class="box stack"><button class="btn" data-act="print"' + (itens.length ? "" : " disabled") + '>Imprimir / guardar PDF</button>' +
+        '<div class="box stack">' + (ARTEFACTO ? "" : '<button class="btn" data-act="print"' + (itens.length ? "" : " disabled") + '>Imprimir / guardar PDF</button>') +
         '<button class="btn btn--quiet" data-act="copy"' + (itens.length ? "" : " disabled") + '>Copiar como texto (email/WhatsApp)</button>' +
         '<button class="btn btn--quiet" data-act="clearPlan"' + (itens.length ? "" : " disabled") + '>Limpar plano</button></div>' +
         '<div class="box stack"><h3>Os meus exercícios</h3><p class="small muted" style="margin:0">' + meus.length + ' criados por si. Faça cópia de segurança ou passe-os para outro computador.</p>' +
-        '<button class="btn btn--quiet btn--sm" data-act="exportar">Exportar (JSON)</button><label class="btn btn--quiet btn--sm">Importar<input type="file" id="importar" accept="application/json" hidden></label></div>' +
+        '<button class="btn btn--quiet btn--sm" data-act="exportar">' + (ARTEFACTO ? "Copiar cópia de segurança (JSON)" : "Exportar (JSON)") + '</button><label class="btn btn--quiet btn--sm">Importar<input type="file" id="importar" accept="application/json" hidden></label></div>' +
       "</aside></div></div>";
     $("#pNome").addEventListener("input", function (ev) { plano.nome = ev.target.value; savePlano(); });
     $("#pNotas").addEventListener("input", function (ev) { plano.notas = ev.target.value; savePlano(); });
@@ -509,6 +516,13 @@
     d.showModal();
   }
   function exportar() {
+    var json = JSON.stringify({ versao: 1, exportado: new Date().toISOString(), exercicios: meus, favoritos: Array.from(favs) }, null, 2);
+    if (ARTEFACTO) {
+      var ok = function () { toast("Cópia de segurança copiada. Cole-a num ficheiro .json para guardar."); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(json).then(ok, function () { fallbackCopy(json); });
+      else fallbackCopy(json);
+      return;
+    }
     var blob = new Blob([JSON.stringify({ versao: 1, exportado: new Date().toISOString(), exercicios: meus, favoritos: Array.from(favs) }, null, 2)], { type: "application/json" });
     var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "meus-exercicios-recuperarte.json"; a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
@@ -534,9 +548,9 @@
 
   /* ---------- eventos globais ---------- */
   function refreshAfterToggle() {
-    var route0 = location.hash.split("?")[0];
-    if (route0.indexOf("#/exercicios") === 0 || route0 === "" || route0 === "#/") updateEx();
-    else if (route0.indexOf("#/lesoes/") === 0) { var y = window.scrollY; viewLesao(route0.slice(9)); window.scrollTo(0, y); }
+    var h = location.hash.replace(/^#/, "");
+    if ($("#grid")) updateEx();
+    else if (h.indexOf("lesao-") === 0) { var y = window.scrollY; viewLesao(h.slice(6)); window.scrollTo(0, y); }
   }
   document.addEventListener("click", function (ev) {
     var t = ev.target;
@@ -555,7 +569,7 @@
       if (a === "novo") { openEditor(null, null); return; }
       if (a === "editar") { openEditor(meus.filter(function (m) { return m.id === id; })[0], id); return; }
       if (a === "duplicar") { var b = JSON.parse(JSON.stringify(BYID[id])); b.nome = b.nome + " (adaptado)"; openEditor(b, null); return; }
-      if (a === "apagar") { if (confirm("Apagar este exercício? Esta ação não pode ser desfeita.")) { meus = meus.filter(function (m) { return m.id !== id; }); saveMeus(); plano.itens = plano.itens.filter(function (i) { return i.id !== id; }); savePlano(); rebuild(); $("#detalhe").close(); route(); toast("Exercício apagado"); } return; }
+      if (a === "apagar") { if (confirmar(act, "Clique de novo para apagar")) { meus = meus.filter(function (m) { return m.id !== id; }); saveMeus(); plano.itens = plano.itens.filter(function (i) { return i.id !== id; }); savePlano(); rebuild(); $("#detalhe").close(); route(); toast("Exercício apagado"); } return; }
       if (a === "fase" || a === "faseAll") {
         var l = LESOES.filter(function (x) { return x.id === act.dataset.l; })[0], n = 0;
         var fases = a === "fase" ? [l.fases[+act.dataset.i]] : l.fases;
@@ -570,7 +584,7 @@
       }
       if (a === "print") { imprimir(); return; }
       if (a === "copy") { copiar(); return; }
-      if (a === "clearPlan") { if (confirm("Remover todos os exercícios do plano?")) { plano.itens = []; savePlano(); viewPlano(); } return; }
+      if (a === "clearPlan") { if (confirmar(act, "Clique de novo para limpar")) { plano.itens = []; savePlano(); viewPlano(); } return; }
       if (a === "exportar") { exportar(); return; }
     }
     var un = t.closest("[data-unsel]");
@@ -612,16 +626,22 @@
 
   /* ---------- router ---------- */
   function route() {
-    var h = location.hash || "#/exercicios", qi = h.indexOf("?");
-    var path = (qi > -1 ? h.slice(0, qi) : h).replace(/^#\/?/, ""), qs = qi > -1 ? h.slice(qi + 1) : "";
-    var parts = path.split("/");
-    var tab = parts[0] === "lesoes" ? "lesoes" : parts[0] === "plano" ? "plano" : "exercicios";
+    var h = location.hash.replace(/^#/, "");
+    /* endereços antigos (#/lesoes/lca, #/plano, #/exercicios?r=joelho) */
+    if (h.charAt(0) === "/") {
+      var qi = h.indexOf("?"), path = (qi > -1 ? h.slice(0, qi) : h).slice(1), qs = qi > -1 ? h.slice(qi + 1) : "";
+      var pp = path.split("/");
+      if (qs) stFromQuery(qs);
+      if (pp[0] === "ex" && pp[1]) { h = "exercicios"; setTimeout(function () { openDetail(decodeURIComponent(pp[1])); }, 0); }
+      else h = pp[0] === "lesoes" && pp[1] ? "lesao-" + slug(pp[1]) : pp[0];
+      history.replaceState(null, "", "#" + (h || "exercicios"));
+    }
+    var tab = h === "lesoes" || h.indexOf("lesao-") === 0 ? "lesoes" : h === "plano" ? "plano" : "exercicios";
     $$(".tabs a").forEach(function (a) { a.classList.toggle("is-on", a.dataset.tab === tab); a.setAttribute("aria-current", a.dataset.tab === tab ? "page" : "false"); });
     $$(".scrim").forEach(function (x) { x.remove(); });
-    if (tab === "lesoes") viewLesoes(parts[1]);
+    if (tab === "lesoes") viewLesoes(h.indexOf("lesao-") === 0 ? h.slice(6) : "");
     else if (tab === "plano") viewPlano();
-    else if (parts[0] === "ex" && parts[1]) { viewExercicios(""); openDetail(decodeURIComponent(parts[1])); }
-    else viewExercicios(qs || lastExQs.replace(/^\?/, ""));
+    else viewExercicios("");
     document.title = (tab === "lesoes" ? "Lesões" : tab === "plano" ? "Plano" : "Exercícios") + " · Recuperarte";
   }
   window.addEventListener("hashchange", route);

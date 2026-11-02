@@ -41,7 +41,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
 
 /* Cabeçalho */
-.top { position: sticky; top: 0; z-index: 30; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
 .top__in { max-width: 1400px; margin: 0 auto; padding: 0 16px; height: 60px; display: flex; align-items: center; gap: 16px; }
 .brand { display: inline-flex; align-items: center; gap: .5em; text-decoration: none; color: var(--ink); font-family: var(--serif); font-size: 1.2rem; font-weight: 600; white-space: nowrap; }
 .brand em { font-style: normal; color: var(--brand); }
